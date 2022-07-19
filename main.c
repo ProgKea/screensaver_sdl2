@@ -1,125 +1,73 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_rect.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_video.h>
 #include <SDL2/SDL_image.h>
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1200
+#define HEIGHT 800
 
 #define IMG_PATH "dvd_logo.png"
 
 #define SPEED 1
 
-#define TOP_RIGHT 1
-#define TOP_LEFT 2
-#define BOTTOM_LEFT 3
-#define BOTTOM_RIGHT 4
-#define TOP 5
-#define BOTTOM 6
+typedef struct {
+    int xdir;
+    int ydir;
+    SDL_Texture *texture;
+    SDL_Rect rect;
+} Dvd_logo;
 
-SDL_Window *win;
-SDL_Renderer *renderer;
-SDL_Rect rect;
-SDL_Texture *dvd_logo;
-
-int dir;
-
-void init()
+Dvd_logo create_dvd_logo(SDL_Renderer *renderer)
 {
-  dir = BOTTOM_RIGHT;
+    Dvd_logo dvd_logo = (Dvd_logo) {
+        .xdir = 1,
+        .ydir = 1,
+        .texture = IMG_LoadTexture(renderer, IMG_PATH),
+        .rect = (SDL_Rect) {
+            .x = WIDTH / 2,
+            .y = HEIGHT / 2,
+        }
+    };
 
-  SDL_Init(SDL_INIT_EVERYTHING);
-  win = SDL_CreateWindow("Screensaver", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
-  renderer = SDL_CreateRenderer(win, -1, 0);
-
-  dvd_logo = IMG_LoadTexture(renderer, IMG_PATH);
+    SDL_QueryTexture(dvd_logo.texture, NULL, NULL, &dvd_logo.rect.w, &dvd_logo.rect.h);
+    return dvd_logo;
 }
 
-void draw_rect()
+void update_dvd_logo(Dvd_logo *dvd_logo)
 {
-  SDL_RenderClear(renderer);
-
-  rect.h = 75;
-  rect.w = 90;
-
-  SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255);
-  /* SDL_RenderFillRect(renderer, &rect); */
-  SDL_RenderCopy(renderer, dvd_logo, NULL, &rect);
-
-  SDL_RenderPresent(renderer);
-}
-
-void move_rect(int direction)
-{
-  switch (direction) {
-  case TOP_RIGHT:
-    rect.x+=SPEED;
-    rect.y-=SPEED;
-    break;
-  case TOP_LEFT:
-    rect.x-=SPEED;
-    rect.y-=SPEED;
-    break;
-  case BOTTOM_LEFT:
-    rect.x-=SPEED;
-    rect.y+=SPEED;
-    break;
-  case BOTTOM_RIGHT:
-    rect.x+=SPEED;
-    rect.y+=SPEED;
-    break;
-  }
-}
-
-void check_collision()
-{
-    if (rect.y >= HEIGHT-rect.h && dir == BOTTOM_RIGHT) {
-	dir = TOP_RIGHT; 
-    }
-    if (rect.y >= HEIGHT-rect.h && dir == BOTTOM_LEFT) {
-	dir = TOP_LEFT; 
-    }
-    if (rect.y <= 0 && dir == TOP_RIGHT) {
-	dir = BOTTOM_RIGHT; 
-    }
-    if (rect.y <= 0 && dir == TOP_LEFT) {
-	dir = BOTTOM_LEFT; 
-    }
-    if (rect.x >= WIDTH-rect.w && dir == TOP_RIGHT) {
-	dir = TOP_LEFT; 
-    }
-    if (rect.x >= WIDTH-rect.w && dir == BOTTOM_RIGHT) {
-	dir = BOTTOM_LEFT; 
-    }
-    if (rect.x <= 0 && dir == TOP_LEFT) {
-	dir = TOP_RIGHT; 
-    }
-    if (rect.x <= 0 && dir == BOTTOM_LEFT) {
-	dir = BOTTOM_RIGHT; 
-    }
+    if (dvd_logo->rect.x + dvd_logo->rect.w >= WIDTH) dvd_logo->xdir = -1;
+    if (dvd_logo->rect.x <= 0) dvd_logo->xdir = 1;
+    if (dvd_logo->rect.y + dvd_logo->rect.h >= HEIGHT) dvd_logo->ydir = -1;
+    if (dvd_logo->rect.y < 0) dvd_logo->ydir = 1;
+    dvd_logo->rect.x += dvd_logo->xdir * SPEED;
+    dvd_logo->rect.y += dvd_logo->ydir * SPEED;
 }
 
 int main()
 {
-  init();
-  
-  while (1) {
-    SDL_Event e;
-    if (SDL_PollEvent(&e)) {
-      if (e.type == SDL_QUIT)
-	break;
-      else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_q)
-	break;
-    }
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    draw_rect();
-    move_rect(dir);
-    check_collision();
-  }
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Window *win = SDL_CreateWindow("Screensaver", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(win);
-  return 0;
+    Dvd_logo dvd_logo = create_dvd_logo(renderer);
+    while (1) {
+        SDL_Event e;
+        if (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT)
+            break;
+            else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_q)
+            break;
+        }
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 100, 255);
+        SDL_RenderCopy(renderer, dvd_logo.texture, NULL, &dvd_logo.rect);
+
+        SDL_RenderPresent(renderer);
+        update_dvd_logo(&dvd_logo);
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(win);
+    SDL_Quit();
+    return 0;
 }
